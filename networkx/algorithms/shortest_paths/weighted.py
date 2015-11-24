@@ -29,6 +29,7 @@ __all__ = ['dijkstra_path',
            'single_source_bellman_ford_path_length',
            'all_pairs_bellman_ford_path',
            'all_pairs_bellman_ford_path_length',
+           'bellman_ford',
            'bellman_ford_predecessor_and_distance',
            'negative_edge_cycle',
            'goldberg_radzik',
@@ -39,6 +40,7 @@ from heapq import heappush, heappop
 from itertools import count
 import networkx as nx
 from networkx.utils import generate_unique_node
+import warnings as _warnings
 
 
 def dijkstra_path(G, source, target, weight='weight'):
@@ -519,8 +521,16 @@ def all_pairs_dijkstra_path(G, cutoff=None, weight='weight'):
     # TODO This can be trivially parallelized.
     return {n: path(G, n, cutoff=cutoff, weight=weight) for n in G}
 
+def bellman_ford(G, source, weight='weight'):
+    _warnings.warn("bellman_ford() is deprecated, use bellman_ford_predecessor_and_distance() instead",
+                   DeprecationWarning)
+    """DEPRECATED: Use bellMan_ford_predecessor_and_distance() instead
+    
+    """
 
-def bellman_ford_predecessor_and_distance(G, source, weight='weight'):
+    return bellman_ford_predecessor_and_distance(G, source, weight=weight)
+    
+def bellman_ford_predecessor_and_distance(G, source, cutoff=None, weight='weight'):
     """Compute shortest path lengths and predecessors on shortest paths
     in weighted graphs.
 
@@ -602,7 +612,7 @@ def bellman_ford_predecessor_and_distance(G, source, weight='weight'):
     else:
         get_weight = lambda u, v, data: data.get(weight, 1)
         
-    return (pred, _bellman_ford(G, [source], get_weight,pred=pred, dist=dist))
+    return (pred, _bellman_ford(G, [source], get_weight,pred=pred, dist=dist, cutoff=cutoff))
 
 
 def _bellman_ford(G, source, get_weight, pred=None, paths=None, dist=None,
