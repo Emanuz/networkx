@@ -141,11 +141,11 @@ class TestWeightedPath:
     def test_dijkstra_predecessor(self):
         G = nx.path_graph(4)
         assert_equal(nx.dijkstra_predecessor_and_distance(G, 0),
-                     ({0: [], 1: [0], 2: [1], 3: [2]}, {0: 0, 1: 1, 2: 2, 3: 3}))
+                     ({0: [None], 1: [0], 2: [1], 3: [2]}, {0: 0, 1: 1, 2: 2, 3: 3}))
         G = nx.grid_2d_graph(2, 2)
         pred, dist = nx.dijkstra_predecessor_and_distance(G, (0, 0))
         assert_equal(sorted(pred.items()),
-                     [((0, 0), []), ((0, 1), [(0, 0)]),
+                     [((0, 0), [None]), ((0, 1), [(0, 0)]),
                       ((1, 0), [(0, 0)]), ((1, 1), [(0, 1), (1, 0)])])
         assert_equal(sorted(dist.items()),
                      [((0, 0), 0), ((0, 1), 1), ((1, 0), 1), ((1, 1), 2)])
@@ -180,7 +180,7 @@ class TestWeightedPath:
         G.add_edge('a', 'b', key='short', foo=5, weight=100)
         G.add_edge('a', 'b', key='long', bar=1, weight=110)
         p, d = nx.dijkstra_predecessor_and_distance(G, 'a')
-        assert_equal(p, {'a': [], 'b': ['a']})
+        assert_equal(p, {'a': [None], 'b': ['a']})
         assert_equal(d, {'a': 0, 'b': 100})
 
     def test_negative_edge_cycle(self):
@@ -205,7 +205,7 @@ class TestBellmanFordAndGoldbergRadizk:
     def test_single_node_graph(self):
         G = nx.DiGraph()
         G.add_node(0)
-        assert_equal(nx.bellman_ford_predecessor_and_distance(G, 0), ({0: []}, {0: 0}))
+        assert_equal(nx.bellman_ford_predecessor_and_distance(G, 0), ({0: [None]}, {0: 0}))
         assert_equal(nx.goldberg_radzik(G, 0), ({0: None}, {0: 0}))
         assert_raises(KeyError, nx.bellman_ford_predecessor_and_distance, G, 1)
         assert_raises(KeyError, nx.goldberg_radzik, G, 1)
@@ -228,7 +228,7 @@ class TestBellmanFordAndGoldbergRadizk:
         G = nx.cycle_graph(5, create_using=nx.DiGraph())
         G.add_edge(1, 2, weight=-3)
         assert_equal(nx.bellman_ford_predecessor_and_distance(G, 0),
-                     ({0: [], 1: [0], 2: [1], 3: [2], 4: [3]},
+                     ({0: [None], 1: [0], 2: [1], 3: [2], 4: [3]},
                       {0: 0, 1: 1, 2: -2, 3: -1, 4: 0}))
         assert_equal(nx.goldberg_radzik(G, 0),
                      ({0: None, 1: 0, 2: 1, 3: 2, 4: 3},
@@ -239,7 +239,7 @@ class TestBellmanFordAndGoldbergRadizk:
         G.add_edge(10, 11)
         G.add_edge(10, 12)
         assert_equal(nx.bellman_ford_predecessor_and_distance(G, 0),
-                     ({0: [], 1: [0], 2: [0], 3: [0], 4: [0], 5: [0]},
+                     ({0: [None], 1: [0], 2: [0], 3: [0], 4: [0], 5: [0]},
                       {0: 0, 1: 1, 2: 1, 3: 1, 4: 1, 5: 1}))
         assert_equal(nx.goldberg_radzik(G, 0),
                      ({0: None, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0},
@@ -252,7 +252,7 @@ class TestBellmanFordAndGoldbergRadizk:
                           ('B', 'C', {'load': -10}),
                           ('C', 'A', {'load': 2})])
         assert_equal(nx.bellman_ford_predecessor_and_distance(G, 0, weight='load'),
-                     ({0: [], 1: [0], 2: [0], 3: [0], 4: [0], 5: [0]},
+                     ({0: [None], 1: [0], 2: [0], 3: [0], 4: [0], 5: [0]},
                       {0: 0, 1: 1, 2: 1, 3: 1, 4: 1, 5: 1}))
         assert_equal(nx.goldberg_radzik(G, 0, weight='load'),
                      ({0: None, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0},
@@ -282,18 +282,18 @@ class TestBellmanFordAndGoldbergRadizk:
 
         G = nx.path_graph(4)
         assert_equal(nx.bellman_ford_predecessor_and_distance(G, 0),
-                     ({0: [], 1: [0], 2: [1], 3: [2]}, {0: 0, 1: 1, 2: 2, 3: 3}))
+                     ({0: [None], 1: [0], 2: [1], 3: [2]}, {0: 0, 1: 1, 2: 2, 3: 3}))
         assert_equal(nx.goldberg_radzik(G, 0),
                      ({0: None, 1: 0, 2: 1, 3: 2}, {0: 0, 1: 1, 2: 2, 3: 3}))
         assert_equal(nx.bellman_ford_predecessor_and_distance(G, 3),
-                     ({0: [1], 1: [2], 2: [3], 3: []}, {0: 3, 1: 2, 2: 1, 3: 0}))
+                     ({0: [1], 1: [2], 2: [3], 3: [None]}, {0: 3, 1: 2, 2: 1, 3: 0}))
         assert_equal(nx.goldberg_radzik(G, 3),
                      ({0: 1, 1: 2, 2: 3, 3: None}, {0: 3, 1: 2, 2: 1, 3: 0}))
 
         G = nx.grid_2d_graph(2, 2)
         pred, dist = nx.bellman_ford_predecessor_and_distance(G, (0, 0))
         assert_equal(sorted(pred.items()),
-                     [((0, 0), []), ((0, 1), [(0, 0)]),
+                     [((0, 0), [None]), ((0, 1), [(0, 0)]),
                       ((1, 0), [(0, 0)]), ((1, 1), [(0, 1), (1, 0)])]) #Multiple shortest paths from, thus multiple predecessors
         assert_equal(sorted(dist.items()),
                      [((0, 0), 0), ((0, 1), 1), ((1, 0), 1), ((1, 1), 2)])

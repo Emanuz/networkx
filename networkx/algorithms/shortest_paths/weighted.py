@@ -438,7 +438,7 @@ def dijkstra_predecessor_and_distance(G, source, cutoff=None, weight='weight'):
     else:
         get_weight = lambda u, v, data: data.get(weight, 1)
 
-    pred = {source: []}  # dictionary of predecessors
+    pred = {source: [None]}  # dictionary of predecessors
     return (pred, _dijkstra(G, source, get_weight, pred=pred, cutoff=cutoff))
 
 
@@ -522,15 +522,17 @@ def all_pairs_dijkstra_path(G, cutoff=None, weight='weight'):
     return {n: path(G, n, cutoff=cutoff, weight=weight) for n in G}
 
 def bellman_ford(G, source, weight='weight'):
-    _warnings.warn("bellman_ford() is deprecated, use bellman_ford_predecessor_and_distance() instead",
-                   DeprecationWarning)
-    """DEPRECATED: Use bellMan_ford_predecessor_and_distance() instead
-    
-    """
 
-    return bellman_ford_predecessor_and_distance(G, source, weight=weight)
+    """DEPRECATED: Has been replaced by function bellman_ford_predecessor_and_distance().
+       
+
+    """
+    _warnings.warn("Function bellman_ford() is deprecated, use function bellman_ford_predecessor_and_distance() instead.",
+                   DeprecationWarning)
+                   
+    return bellman_ford_predecessor_and_distance(G, source, weight=weight) 
     
-def bellman_ford_predecessor_and_distance(G, source, cutoff=None, weight='weight'):
+def bellman_ford_predecessor_and_distance(G, source, target=None, cutoff=None, weight='weight'):
     """Compute shortest path lengths and predecessors on shortest paths
     in weighted graphs.
 
@@ -570,7 +572,7 @@ def bellman_ford_predecessor_and_distance(G, source, cutoff=None, weight='weight
     >>> G = nx.path_graph(5, create_using = nx.DiGraph())
     >>> pred, dist = nx.bellman_ford_predecessor_and_distance(G, 0)
     >>> sorted(pred.items())
-    [(0, []), (1, [0]), (2, [1]), (3, [2]), (4, [3])]
+    [(0, [None]), (1, [0]), (2, [1]), (3, [2]), (4, [3])]
     >>> sorted(dist.items())
     [(0, 0), (1, 1), (2, 2), (3, 3), (4, 4)]
 
@@ -601,7 +603,7 @@ def bellman_ford_predecessor_and_distance(G, source, cutoff=None, weight='weight
             raise nx.NetworkXUnbounded("Negative cost cycle detected.")
 
     dist = {source: 0}
-    pred = {source: []}
+    pred = {source: [None]}
 
     if len(G) == 1:
         return pred, dist
@@ -612,7 +614,7 @@ def bellman_ford_predecessor_and_distance(G, source, cutoff=None, weight='weight
     else:
         get_weight = lambda u, v, data: data.get(weight, 1)
         
-    return (pred, _bellman_ford(G, [source], get_weight,pred=pred, dist=dist, cutoff=cutoff))
+    return (pred, _bellman_ford(G, [source], get_weight,pred=pred, dist=dist, cutoff=cutoff, target=target))
 
 
 def _bellman_ford(G, source, get_weight, pred=None, paths=None, dist=None,
@@ -664,7 +666,7 @@ def _bellman_ford(G, source, get_weight, pred=None, paths=None, dist=None,
     """
 
     if pred == None:
-        pred = {v: [] for v in source}
+        pred = {v: [None] for v in source}
     
     if dist == None:
         dist = {v: 0 for v in source}
@@ -709,11 +711,13 @@ def _bellman_ford(G, source, get_weight, pred=None, paths=None, dist=None,
                     pred[v].append(u)
 
     if paths != None:
-        for dst in pred:
+        dsts = [target] if target != None else pred
+        for dst in dsts:
+        
             path = [dst]
             cur = dst
             
-            while len(pred[cur]) != 0:
+            while pred[cur][0] != None:
                 cur = pred[cur][0]
                 path.append(cur)
             
@@ -722,12 +726,12 @@ def _bellman_ford(G, source, get_weight, pred=None, paths=None, dist=None,
     
 
     return dist
-    
+
 def bellman_ford_path(G, source, target, weight='weight'):
     """See dijkstra_path()
     
     """
-    (length, paths) = single_source_bellman_ford(G, source, target=target, weight=weight)
+    (lengths, paths) = single_source_bellman_ford(G, source, target=target, weight=weight)
     try:
         return paths[target]
     except KeyError:
@@ -1225,7 +1229,7 @@ def johnson(G, weight='weight'):
         raise nx.NetworkXError('Graph is not weighted.')
 
     dist = {v: 0 for v in G}
-    pred = {v: [] for v in G}
+    pred = {v: [None] for v in G}
     
     if G.is_multigraph():
         get_weight = lambda u, v, data: min(
