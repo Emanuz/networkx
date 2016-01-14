@@ -1514,6 +1514,84 @@ class Graph(object):
         """
         return (n for n, nbrs in self.adj.items() if n in nbrs)
 
+    def negative_edges(self, weight='weight', data=False, default=None):
+        """Returns an iterator over negative-weight edges.
+
+        A negative-weight edge (1) has a weight (2) which is lower than 0.
+
+        Parameters
+        ----------
+        data : string or bool, optional (default=False)
+            Return selfloop edges as two tuples (u,v) (data=False)
+            or three-tuples (u,v,datadict) (data=True)
+            or three-tuples (u,v,datavalue) (data='attrname')
+        default : value, optional (default=None)
+            Value used for edges that dont have the requested attribute.
+            Only relevant if data is not True or False.
+
+        Returns
+        -------
+        edgeiter : iterator over edge tuples
+            An iterator over all selfloop edges.
+
+        See Also
+        --------
+        has_negative_edges, number_of_negative_edges
+        """
+            
+        if data is True:
+            return ((u, v, eattr)
+                    for u, v, eattr in self.edges(data=True) if eattr.get(weight,1) < 0)
+        elif data is not False:
+            return ((u, v, eattr.get(data, default))
+                    for u, v, eattr in self.edges(data=True) if eattr.get(weight,1) < 0)
+        else:
+            return ((u, v)
+                    for u, v, weight_val in self.edges(data=weight, default=1) if weight_val < 0)
+
+    def number_of_negative_edges(self, weight='weight'):
+        """Return the number of negative-weighted edges.
+
+        A negative-weight edge (1) has a weight (2) which is lower than 0.
+
+        Returns
+        -------
+        nnedges : int
+            The number of negative-weight edges.
+
+        See Also
+        --------
+        has_negative_edges, negative_edges
+        """
+        return sum(1 for _ in self.negative_edges(weight=weight))
+
+    def has_negative_edges(self, weight='weight'):
+        """Return True if there exist one or more negative-weighted edges.
+        
+        A negative-weight edge (1) has a weight (2) which is lower than 0.
+
+        Parameters
+        ----------
+        G : NetworkX graph
+    
+        weight: string, optional (default='weight')
+           Edge data key corresponding to the edge weight
+    
+        Returns
+        -------
+        negative_edge : bool
+            True if a negative edge exists, otherwise False.
+    
+        See Also
+        --------
+        negative_edges, number_of_negative_edges
+        """
+        for u, v, weight_val in self.edges(data=weight, default=1):
+            if weight_val < 1:
+                return True
+            
+        return False
+        
     def selfloop_edges(self, data=False, default=None):
         """Returns an iterator over selfloop edges.
 

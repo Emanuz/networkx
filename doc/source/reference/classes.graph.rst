@@ -69,6 +69,10 @@ Information about graph structure
    Graph.nodes_with_selfloops
    Graph.selfloop_edges
    Graph.number_of_selfloops
+   Graph.negative_edges
+   Graph.number_of_negative_edges
+   Graph.has_negative_edges
+
 
 
 Making copies and subgraphs

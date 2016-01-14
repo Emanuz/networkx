@@ -1,4 +1,4 @@
-from nose.tools import (assert_equal, assert_raises, assert_true, raises,
+from nose.tools import (assert_equal, assert_raises, assert_true, assert_false, raises,
                         assert_not_equal)
 import networkx
 
@@ -168,6 +168,34 @@ class BaseGraphTester(object):
         G.add_edge(1,1)
         G.remove_nodes_from([0,1])
 
+    def test_negative_edges(self):
+        G=self.Graph()
+        G.add_edge(0, 1, weight=1)
+        G.add_edge(0, 2, weight=2)
+        G.add_edge(1, 3, weight=-3)
+        G.add_edge(2, 3, weight=-1)
+        assert_equal(sorted(G.negative_edges()),[(1, 3), (2, 3)])
+
+    def test_number_of_negative_edges(self):
+        G=self.Graph()
+        G.add_edge(0, 1, weight=1)
+        G.add_edge(0, 2, weight=2)
+        assert_equal(G.number_of_negative_edges(), 0)
+        G.add_edge(1, 3, weight=-3)
+        G.add_edge(2, 3, weight=-1)
+        assert_equal(G.number_of_negative_edges(), 2)
+        G.remove_edge(2, 3)
+        assert_equal(G.number_of_negative_edges(), 1)
+
+    def test_has_negative_edges(self):
+        G=self.Graph()
+        G.add_edge(0, 1, weight=1)
+        G.add_edge(0, 2, weight=2)
+        assert_false(G.has_negative_edges())
+        G.add_edge(2, 3, weight=-1)
+        assert_true(G.has_negative_edges())
+        G.remove_edge(2, 3)
+        assert_false(G.has_negative_edges())
 
 class BaseAttrGraphTester(BaseGraphTester):
     """ Tests of graph class attribute features."""
