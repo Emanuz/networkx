@@ -12,7 +12,7 @@ __all__ = ['bhandari_paths']
 
 import networkx as nx
 
-def bhandari_paths(G_orig, source, target, weight='weight', k=2, node_disjoint=False, force_maximally_disjoint=False, node_over_edge_disjointness=True, cutoff_disjointness=False):
+def bhandari_paths(G, source, target, weight=None, k=2, node_disjoint=False, force_maximally_disjoint=False, node_over_edge_disjointness=True, cutoff_disjointness=False):
 
     if k < 2:
         raise nx.NetworkXUnfeasible("You need at least k>=2 paths to be disjoint, k=%d"%(k))
@@ -20,12 +20,12 @@ def bhandari_paths(G_orig, source, target, weight='weight', k=2, node_disjoint=F
     if source == target:
         raise nx.NetworkXUnfeasible("There is no such thing as a disjoint path to oneself, as oneself has to excluded from the disjoint path to be able to exist")
 
-    if G_orig.has_negative_edges():
+    if G.has_negative_edges():
         raise nx.NetworkXUnfeasible("Bhandari's algorithm may not give correct results for negative edges")
     
-    if node_disjoint == True:
-        raise NotImplementedError(
-            "To Be Done: Node-disjoint paths are not yet implemented")
+    #if node_disjoint == True:
+    #    raise NotImplementedError(
+    #        "To Be Done: Node-disjoint paths are not yet implemented")
 
     if force_maximally_disjoint == True:
         raise NotImplementedError(
@@ -35,11 +35,26 @@ def bhandari_paths(G_orig, source, target, weight='weight', k=2, node_disjoint=F
         raise NotImplementedError(
             "To Be Done: Cutoff for maximal disjointness not yet implemented")    
     
-    if G_orig.is_multigraph():
+    if G.is_multigraph():
         raise NotImplementedError(
             "Implement link-splitting to allow multigraphs, impossible in the case of node-disjointness")
+    
+    #Find an unused parameter so we don't mixup our internal weights with
+    #Possible existing parameters named "weight" that should not be considered.
+    if weight == None:
+        weight = "_weight"
+        while any( weight in d for u, v, d in G.edges(data = True) ):
+            weight = "_"+weight
+    
+    #We will use node-splitting to assure node_disjointness, hence the
+    #"original" graph may change.
+    if node_disjoint == True:
+        G_orig = nx.DiGraph(G)
+        for node in G_orig.nodes():
+    else:
+        G_orig = G
 
-    G_copy = nx.DiGraph(G_orig.succ if G_orig.is_directed() else G_orig.adj)
+    G_copy = nx.DiGraph(G_orig)
     path_init = []
     edges = {}
    
@@ -51,19 +66,21 @@ def bhandari_paths(G_orig, source, target, weight='weight', k=2, node_disjoint=F
                 
         next = None
         v = target
-        u = pred[v][0]        
+        u = pred[v][0]
         
         while v != source:            
             prev = pred[u][0] if u in pred else None
             
             if (v,u) not in edges:                
                 #Remove edge from graph and add negatively-weighted arc in opposite direction
+                weight_val = G_copy[u][v].get(weight, 1)
                 G_copy.remove_edge(u, v)
-                #If reverse arc exists, replace weight:
-                if G_orig.has_edge(v, u):
+
+                #If reverse arc exists, replace it
+                if G_copy.has_edge(v, u):
                     G_copy.remove_edge(v, u)
-                    weight_val = G_orig[v][u].get(weight, 1)
-                    G_copy.add_edge(v, u, {weight : -weight_val})
+                
+                G_copy.add_edge(v, u, {weight : -weight_val})
 
                 #Add to internal path
                 edges[(u, v)] = (prev, next)
@@ -71,12 +88,17 @@ def bhandari_paths(G_orig, source, target, weight='weight', k=2, node_disjoint=F
                 #Set value for next iteration
                 next = v
                 
-            else:
-                #Restore original edge in graph
+            else: #(v,u) in edges, thus also already splitted where applicable
+                #Restore original edge in graph, if it exists:
+                weight_val = G_copy[u][v].get(weight, 1)                
                 G_copy.remove_edge(u,v)
-                #G_copy.remove(v,u) in case of INF values instead of edge removal.
-                G_copy.add_edge(u, v, G_orig[u][v])
-                G_copy.add_edge(v, u, G_orig[v][u])  
+                
+                #If original arc existed, restore it
+                if G_orig.has_edge(u, v):
+                    G_copy.add_edge(u, v, {weight : G_orig[u][v].get(weight, 1)})
+                    
+                #Add original arc weight
+                G_copy.add_edge(v, u, {weight : -weight_val})
 
                 #Switch paths
                 #Connect encountered path to our tail
