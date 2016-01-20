@@ -507,9 +507,9 @@ class DiGraph(Graph):
             except KeyError:
                 pass # silent failure on remove
 
-    def split_node(self, n, weight='weight', weight_val=0):
+    def split_node(self, n, weight, weight_val=0):
         """Split a node n into 2 nodes n_in and and n_out which are connected
-        with a directed arc of default {'weight' : 0} or {weight : weight_val}
+        with a directed arc of default {weight : 0} or {weight : weight_val}
         if stated otherwise.
         
         The nodes u_in and u_out will be automatically named by postpending
@@ -535,27 +535,26 @@ class DiGraph(Graph):
         while str(n) + _append in self.node:
             _append = "_" + _append
         n_in = str(n) + _append
-        print n_in
         
         _append = "_out"
         while str(n) + _append in self.node:
             _append = "_" + _append
         n_out = str(n) + _append
-        print n_out
-
-        if n_in in self.succ:
-            raise NetworkXError("The splitted incoming node name %s already exists."%(n_in,))
-            
-        if n_out in self.succ:
-            raise NetworkXError("The splitted outgoing node name %s already exists."%(n_out,))
         
         self.add_node(n_in, split_node=n, split_dict=self.node[n] )
         self.add_node(n_out, split_node=n, split_dict=self.node[n])
-        self.add_edge(n_in, n_out, {weight : weight_val})
+        if weight == None:
+            self.add_edge(n_in, n_out)
+        else:
+            self.add_edge(n_in, n_out, {weight : weight_val})
 
-        self.add_edges_from([(n_out, n_succ, succ_dict) for (n_succ, succ_dict) in self.succ[n].iteritems()])
-        self.add_edges_from([(n_pred, n_in, pred_dict) for (n_pred, pred_dict) in self.pred[n].iteritems()])
-        
+        #Add possible self-loop
+        if self.has_edge(n, n):
+            self.add_edge(n_out, n_in, self.adj[n][n])
+
+        self.add_edges_from([(n_out, n_succ, succ_dict) for (n_succ, succ_dict) in self.succ[n].iteritems() if n_succ != n])
+        self.add_edges_from([(n_pred, n_in, pred_dict) for (n_pred, pred_dict) in self.pred[n].iteritems() if n_pred != n])
+
         self.remove_node(n)
         
         return (n_in, n_out)

@@ -8,11 +8,10 @@
 #    BSD license.
 
 __author__ = """\n""".join(['Niels L. M. van Adrichem <n.l.m.vanadrichem@tudelft.nl>'])
-__all__ = ['bhandari_paths']
 
 import networkx as nx
 
-def bhandari_paths(G, source, target, weight=None, k=2, node_disjoint=False, force_maximally_disjoint=False, node_over_edge_disjointness=True, cutoff_disjointness=False):
+def bhandari(G, source, target, weight=None, k=2, node_disjoint=False, force_maximally_disjoint=False, node_over_edge_disjointness=False, edge_disjointness_penalty=None, node_disjointness_penalty=None):
 
     if k < 2:
         raise nx.NetworkXUnfeasible("You need at least k>=2 paths to be disjoint, k=%d"%(k))
@@ -21,39 +20,57 @@ def bhandari_paths(G, source, target, weight=None, k=2, node_disjoint=False, for
         raise nx.NetworkXUnfeasible("There is no such thing as a disjoint path to oneself, as oneself has to excluded from the disjoint path to be able to exist")
 
     if G.has_negative_edges():
-        raise nx.NetworkXUnfeasible("Bhandari's algorithm may not give correct results for negative edges")
-    
-    #if node_disjoint == True:
-    #    raise NotImplementedError(
-    #        "To Be Done: Node-disjoint paths are not yet implemented")
+        raise nx.NetworkXUnfeasible("Bhandari's algorithm is not correct for negative edges as it may insert negative cycles.")
 
-    if force_maximally_disjoint == True:
+    if force_maximally_disjoint == True or node_over_edge_disjointness == True or edge_disjointness_penalty != None or node_disjointness_penalty != None:
         raise NotImplementedError(
             "To Be Done: Maximally-disjoint paths not yet implemented")
-            
-    if cutoff_disjointness == True:
-        raise NotImplementedError(
-            "To Be Done: Cutoff for maximal disjointness not yet implemented")    
+    
+    if node_disjoint == True and G.has_nodes_with_selfloops():
+        raise nx.NetworkXUnfeasible(
+            "Remove self-loops or apply edge-splitting with intermediate virtual nodes on self-loops before searching for node disjointness to prevent the internal node-splitting of Bhandari's algorith to cause multigraphs.")
     
     if G.is_multigraph():
-        raise NotImplementedError(
-            "Implement link-splitting to allow multigraphs, impossible in the case of node-disjointness")
+        raise nx.NetworkXUnfeasible(
+            "Apply link-splitting before calling Bhandari's to allow multigraphs. Note that multigraphs are not useful when searching for non-maximal node disjointness, a graph containing the minimum-weight edges suffices.")
     
-    #Find an unused parameter so we don't mixup our internal weights with
+    #Find an unused parameter 'weight' so we don't mixup our internal weights with
     #Possible existing parameters named "weight" that should not be considered.
     if weight == None:
         weight = "_weight"
         while any( weight in d for u, v, d in G.edges(data = True) ):
             weight = "_"+weight
     
-    #We will use node-splitting to assure node_disjointness, hence the
-    #"original" graph may change.
-    if node_disjoint == True:
-        G_orig = nx.DiGraph(G)
-        for node in G_orig.nodes():
-    else:
-        G_orig = G
-
+    
+    if G.is_multigraph():
+        raise NotImplementedError(
+            "Implement link-splitting to allow multigraphs, impossible in the case of node-disjointness")
+    
+    def split_node_criteria(n):
+        #Don't split source and destination nodes
+        if n == source or n == target:
+            return False
+        #Already splitted by us
+        if n not in G:
+            return False
+        
+        #An absolute degree <= 3 does not need to be splitted, neither do nodes with just 1 in- or out-going edge.
+        if G.is_directed():
+            if G.out_degree(n) == 1:
+                return False
+            if G.in_degree(n) == 1:
+                return False
+            #Distinct degree of incoming and outgoing node
+            if ( len(G.succ[n]) + sum(1 for _node in G.pred[n] if _node not in G.succ[n]) ) <= 3:
+                return False
+        else:
+            if G.degree(u) <= 3:
+                return False
+                
+        return True
+           
+    G_orig = G
+    
     G_copy = nx.DiGraph(G_orig)
     path_init = []
     edges = {}
@@ -80,25 +97,62 @@ def bhandari_paths(G, source, target, weight=None, k=2, node_disjoint=False, for
                 if G_copy.has_edge(v, u):
                     G_copy.remove_edge(v, u)
                 
-                G_copy.add_edge(v, u, {weight : -weight_val})
+                if node_disjoint == True and split_node_criteria(u):
+                    (u_in, u_out) = G_copy.split_node(u, weight=weight)
+                    
+                    #Swap direction and weight
+                    G_copy.remove_edge(u_in, u_out)
+                    G_copy.add_edge(u_out, u_in, {weight : -0} )
+                    
+                    G_copy.add_edge(v, u_out, {weight : -weight_val})
 
-                #Add to internal path
-                edges[(u, v)] = (prev, next)
-                
+                    #Add to internal path
+                    edges[(u_out, v)] = (u_in , next)
+                    edges[(u_in, u_out)] = (prev, v)
+                    
+                    #Set values for next iteration
+                    u = u_in
+                    v = u_out                    
+                    
+                else: #Being in edges implies that u and v are already node-splitted if necessary
+                    #Swap direction and weight
+                    G_copy.add_edge(v, u, {weight : -weight_val})
+                    
+                    #Add to internal path
+                    edges[(u, v)] = (prev, next)
+                    
                 #Set value for next iteration
                 next = v
                 
             else: #(v,u) in edges, thus also already splitted where applicable
-                #Restore original edge in graph, if it exists:
-                weight_val = G_copy[u][v].get(weight, 1)                
+                #Restore original edges in graph, if they exists:
+                weight_val = -G_copy[u][v].get(weight, 1)                
                 G_copy.remove_edge(u,v)
-                
-                #If original arc existed, restore it
-                if G_orig.has_edge(u, v):
-                    G_copy.add_edge(u, v, {weight : G_orig[u][v].get(weight, 1)})
-                    
+
                 #Add original arc weight
-                G_copy.add_edge(v, u, {weight : -weight_val})
+                G_copy.add_edge(v, u, {weight : weight_val})
+                
+                if node_disjoint == True:
+                    
+                    if u not in G_orig:
+                        _u = G_copy.node[u]["split_node"]
+                    else:
+                        _u = u
+                    
+                    if v not in G_orig:
+                        _v = G_copy.node[v]["split_node"]
+                    else:
+                        _v = v
+                    #If original arc existed, restore it, exclude splitted nodes
+                    if _u != _v and G_orig.has_edge(_u, _v): 
+                        G_copy.add_edge(u, v, {weight : G_orig[_u][_v].get(weight, 1)})
+                    
+                else:
+                    #If original arc existed, restore it
+                    if G_orig.has_edge(u, v):
+                        G_copy.add_edge(u, v, {weight : G_orig[u][v].get(weight, 1)})
+                    
+                
 
                 #Switch paths
                 #Connect encountered path to our tail
@@ -118,17 +172,43 @@ def bhandari_paths(G, source, target, weight=None, k=2, node_disjoint=False, for
             u = prev
                 
         path_init.append( (source, next) )
-        
+    #Compute paths and true lengths
     paths = []
+    dists = []
+    
     for (u, v) in path_init:
-        path = [u]
         
+        path = [u]
+        dist = 0
+        
+        if node_disjoint == True:
+            u_split = u
+            
         while v != None:
-            path.append(v)
+
+            if node_disjoint == True:
+                if v not in G:
+                    v_split = G_copy.node[v].get("split_node")
+                    if u_split != v_split:
+                        path.append(v_split)
+                        dist += G[u_split][v_split].get(weight, 1)
+                        u_split = v_split
+                else:
+                    path.append(v)
+                    dist += G[u_split][v].get(weight, 1)
+                    u_split = v
+                    
+            else:
+                path.append(v)
+                dist += G[u][v].get(weight, 1)
+ 
             (_, next) = edges[(u, v)]
             u = v
             v = next
-            
+
+        dists.append(dist)
         paths.append(path)
         
-    return paths
+    dists,paths = zip(*sorted(zip(dists,paths)))        
+        
+    return dists,paths

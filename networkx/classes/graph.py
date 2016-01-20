@@ -1513,6 +1513,23 @@ class Graph(object):
 
         """
         return (n for n, nbrs in self.adj.items() if n in nbrs)
+    
+    def has_nodes_with_selfloops(self):
+        """Return True if there exist one or more nodes with selfloops.
+    
+        Returns
+        -------
+        nodes_with_selfloops : bool
+            True if one or more nodes with selfloops exist, otherwise False.
+    
+        See Also
+        --------
+        nodes_with_selfloops
+        """
+        for n, nbrs in self.adj.items():
+            if n in nbrs:
+                return True
+        return False
 
     def negative_edges(self, weight='weight', data=False, default=None):
         """Returns an iterator over negative-weight edges.
@@ -1572,8 +1589,6 @@ class Graph(object):
 
         Parameters
         ----------
-        G : NetworkX graph
-    
         weight: string, optional (default='weight')
            Edge data key corresponding to the edge weight
     
