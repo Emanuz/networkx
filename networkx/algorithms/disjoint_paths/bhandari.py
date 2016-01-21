@@ -26,10 +26,6 @@ def bhandari(G, source, target, weight=None, k=2, node_disjoint=False, force_max
         raise NotImplementedError(
             "To Be Done: Maximally-disjoint paths not yet implemented")
     
-    if node_disjoint == True and G.has_nodes_with_selfloops():
-        raise nx.NetworkXUnfeasible(
-            "Remove self-loops or apply edge-splitting with intermediate virtual nodes on self-loops before searching for node disjointness to prevent the internal node-splitting of Bhandari's algorith to cause multigraphs.")
-    
     if G.is_multigraph():
         raise nx.NetworkXUnfeasible(
             "Apply link-splitting before calling Bhandari's to allow multigraphs. Note that multigraphs are not useful when searching for non-maximal node disjointness, a graph containing the minimum-weight edges suffices.")
@@ -143,8 +139,8 @@ def bhandari(G, source, target, weight=None, k=2, node_disjoint=False, force_max
                         _v = G_copy.node[v]["split_node"]
                     else:
                         _v = v
-                    #If original arc existed, restore it, exclude splitted nodes
-                    if _u != _v and G_orig.has_edge(_u, _v): 
+                    #If original arc existed, restore it (possibly a self-loop, but that seems to be correct)
+                    if G_orig.has_edge(_u, _v): 
                         G_copy.add_edge(u, v, {weight : G_orig[_u][_v].get(weight, 1)})
                     
                 else:
