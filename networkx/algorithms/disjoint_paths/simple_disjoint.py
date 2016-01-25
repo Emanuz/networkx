@@ -8,7 +8,7 @@
 #    BSD license.
 
 __author__ = """\n""".join(['Niels L. M. van Adrichem <n.l.m.vanadrichem@tudelft.nl>'])
-__all__ = ['simple_disjoint_paths']
+__all__ = ['simple_disjoint']
 
 import networkx as nx
 
