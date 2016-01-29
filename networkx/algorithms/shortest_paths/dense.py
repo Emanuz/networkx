@@ -8,9 +8,11 @@
 #    All rights reserved.
 #    BSD license.
 import networkx as nx
+from collections import defaultdict
 __author__ = """Aric Hagberg <aric.hagberg@gmail.com>"""
 __all__ = ['floyd_warshall',
            'floyd_warshall_predecessor_and_distance',
+           'floyd_warshall_successor_and_distance',
            'floyd_warshall_numpy']
 
 def floyd_warshall_numpy(G, nodelist=None, weight='weight'):
@@ -88,31 +90,87 @@ def floyd_warshall_predecessor_and_distance(G, weight='weight'):
     all_pairs_shortest_path
     all_pairs_shortest_path_length
     """
-    from collections import defaultdict
+    pred = defaultdict(dict)
+    dist = _floyd_warshall(G, weight=weight, pred=pred)
+    return dict(pred), dict(dist)
+
+def floyd_warshall_successor_and_distance(G, weight='weight'):
+    """Find all-pairs shortest path lengths using Floyd's algorithm.
+
+    Parameters
+    ----------
+    G : NetworkX graph
+
+    weight: string, optional (default= 'weight')
+       Edge data key corresponding to the edge weight.
+
+    Returns
+    -------
+    successor,distance : dictionaries
+       Dictionaries, keyed by source and target, of successors and distances
+       in the shortest path.
+
+    Notes
+    ------
+    Floyd's algorithm is appropriate for finding shortest paths
+    in dense graphs or graphs with negative weights when Dijkstra's algorithm
+    fails.  This algorithm can still fail if there are negative cycles.
+    It has running time O(n^3) with running space of O(n^2).
+
+    See Also
+    --------
+    floyd_warshall
+    floyd_warshall_numpy
+    all_pairs_shortest_path
+    all_pairs_shortest_path_length
+    """
+    succ = defaultdict(dict)
+    dist = _floyd_warshall(G, weight=weight, succ=succ)
+    return dict(succ), dict(dist)
+    
+def _floyd_warshall(G, weight, pred=None, dist=None, succ=None):
+    
     # dictionary-of-dictionaries representation for dist and pred
     # use some defaultdict magick here
     # for dist the default is the floating point inf value
-    dist = defaultdict(lambda : defaultdict(lambda: float('inf')))
+    
+    if dist == None:
+        dist = defaultdict(dict)
+
+    if pred == None:
+        pred = defaultdict(dict)
+ 
+    if succ == None:
+        succ = defaultdict(dict)
+
+    inf = float('inf')
+    
     for u in G:
         dist[u][u] = 0
-    pred = defaultdict(dict)
+        pred[u][u] = None
+        succ[u][u] = None
+    
     # initialize path distance dictionary to be the adjacency matrix
     # also set the distance to self to 0 (zero diagonal)
     undirected = not G.is_directed()
     for u,v,d in G.edges(data=True):
         e_weight = d.get(weight, 1.0)
-        dist[u][v] = min(e_weight, dist[u][v])
+        dist[u][v] = min(e_weight, dist[u].get(v, inf))
         pred[u][v] = u
+        succ[u][v] = v
         if undirected:
-            dist[v][u] = min(e_weight, dist[v][u])
+            dist[v][u] = min(e_weight, dist[v].get(u, inf))
             pred[v][u] = v
+            succ[v][u] = u
     for w in G:
         for u in G:
             for v in G:
-                if dist[u][v] > dist[u][w] + dist[w][v]:
+                if dist[u].get(v, inf) > dist[u].get(w, inf) + dist[w].get(v, inf):
                     dist[u][v] = dist[u][w] + dist[w][v]
                     pred[u][v] = pred[w][v]
-    return dict(pred),dict(dist)
+                    succ[u][v] = succ[u][w]
+
+    return dist
 
 
 def floyd_warshall(G, weight='weight'):
@@ -147,7 +205,7 @@ def floyd_warshall(G, weight='weight'):
     all_pairs_shortest_path_length
     """
     # could make this its own function to reduce memory costs
-    return floyd_warshall_predecessor_and_distance(G, weight=weight)[1]
+    return _floyd_warshall(G, weight=weight)
 
 # fixture for nose tests
 def setup_module(module):

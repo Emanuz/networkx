@@ -31,6 +31,7 @@ __all__ = ['dijkstra_path',
            'all_pairs_bellman_ford_path_length',
            'bellman_ford',
            'bellman_ford_predecessor_and_distance',
+           'bellman_ford_successor_and_distance',
            'negative_edge_cycle',
            'goldberg_radzik',
            'johnson']
@@ -593,7 +594,10 @@ def bellman_ford_predecessor_and_distance(G, source, target=None, cutoff=None, w
     In the case where the (di)graph is not connected, if a component
     not containing the source contains a negative cost (di)cycle, it
     will not be detected.
-
+    
+    See Also
+    --------
+    bellman_ford_successor_and_distance()
     """
     if source not in G:
         raise KeyError("Node %s is not found in the graph" % source)
@@ -616,9 +620,79 @@ def bellman_ford_predecessor_and_distance(G, source, target=None, cutoff=None, w
         
     return (pred, _bellman_ford(G, [source], get_weight,pred=pred, dist=dist, cutoff=cutoff, target=target))
 
+def bellman_ford_successor_and_distance(G, source, target=None, cutoff=None, weight='weight'):
+    """Compute shortest path lengths and predecessors on shortest paths
+    in weighted graphs.
+
+    The algorithm has a running time of O(mn) where n is the number of
+    nodes and m is the number of edges.  It is slower than Dijkstra but
+    can handle negative edge weights.
+
+    Parameters
+    ----------
+    G : NetworkX graph
+       The algorithm works for all types of graphs, including directed
+       graphs and multigraphs.
+
+    source: node label
+       Starting node for path
+
+    weight: string, optional (default='weight')
+       Edge data key corresponding to the edge weight
+
+    Returns
+    -------
+    succ, dist : dictionaries
+       Returns two dictionaries keyed by node to successor in the
+       path and to the distance from the source respectively.
+
+    Raises
+    ------
+    NetworkXUnbounded
+       If the (di)graph contains a negative cost (di)cycle, the
+       algorithm raises an exception to indicate the presence of the
+       negative cost (di)cycle.  Note: any negative weight edge in an
+       undirected graph is a negative cost cycle.
+
+    Notes
+    -----
+    Edge weight attributes must be numerical.
+    Distances are calculated as sums of weighted edges traversed.
+
+    The dictionaries returned only have keys for nodes reachable from
+    the source.
+
+    In the case where the (di)graph is not connected, if a component
+    not containing the source contains a negative cost (di)cycle, it
+    will not be detected.
+
+    See Also
+    --------
+    bellman_ford_predecessor_and_distance()
+    """
+    if source not in G:
+        raise KeyError("Node %s is not found in the graph" % source)
+
+    for u, v, attr in G.selfloop_edges(data=True):
+        if attr.get(weight, 1) < 0:
+            raise nx.NetworkXUnbounded("Negative cost cycle detected.")
+
+    dist = {source: 0}
+    succ = {source: [None]}
+
+    if len(G) == 1:
+        return succ, dist
+
+    if G.is_multigraph():
+        get_weight = lambda u, v, data: min(
+            eattr.get(weight, 1) for eattr in data.values())
+    else:
+        get_weight = lambda u, v, data: data.get(weight, 1)
+        
+    return (succ, _bellman_ford(G, [source], get_weight, succ=succ, dist=dist, cutoff=cutoff, target=target))
 
 def _bellman_ford(G, source, get_weight, pred=None, paths=None, dist=None,
-                  cutoff=None, target=None):
+                  cutoff=None, target=None, succ=None):
     """Relaxation loop for Bellman–Ford algorithm
 
     Parameters
@@ -667,7 +741,7 @@ def _bellman_ford(G, source, get_weight, pred=None, paths=None, dist=None,
 
     if pred == None:
         pred = {v: [None] for v in source}
-    
+        
     if dist == None:
         dist = {v: 0 for v in source}
 
@@ -723,8 +797,7 @@ def _bellman_ford(G, source, get_weight, pred=None, paths=None, dist=None,
             
             path.reverse()
             paths[dst] = path
-    
-
+            
     return dist
 
 def bellman_ford_path(G, source, target, weight='weight'):
