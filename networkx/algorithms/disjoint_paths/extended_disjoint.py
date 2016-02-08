@@ -55,8 +55,10 @@ def extended_disjoint(G, weight=None, node_disjoint=False, edge_then_node_disjoi
                         next = n
                         while next != u:
                             prev = _pred[next][0]
-                            if succ[prev].get(n) != next:
-                                succ[(prev,v)][n] = next
+                            #Remove if rule is equal to default forwarding rule
+                            #if succ[prev].get(n) != next:
+                            succ[(prev,v)][n] = next
+                                
                             next = prev
                     else:
                         succ[(u,v)][n] = None
@@ -81,10 +83,13 @@ def extended_disjoint(G, weight=None, node_disjoint=False, edge_then_node_disjoi
                         next = n                
                         while next != u:
                             prev = _pred[next][0]
-                            if (prev not in succ or succ[prev].get(n) != next) and (edge_then_node_disjoint == False or (prev,v) not in succ or succ[(prev,v)].get(n) != next):
-                                succ[(prev,(u,v))][n] = next
+                            #Only add if rule is unequal to previously set node-disjoint rule (if applicable) or default forwarding rule (otherwise)
+                            #if (edge_then_node_disjoint == True and ((prev, v) in succ and succ[(prev, v)].get(n) != next) or ((edge_then_node_disjoint == False or (prev, v) not in succ) and succ[prev].get(n) != next)):
+                            #if succ[prev].get(n) != next:
+                            succ[(prev,(u,v))][n] = next
+                            
                             next = prev
-                    elif edge_then_node_disjoint == False or (u,v) not in succ: # succ[(u,v)].get(n) != None), if there is no edge-failure-disjoint detour, neither is there a node-failure-disjoint one, no need to check
+                    else: # edge_then_node_disjoint == False: #If edge_then_node_disjoint == True, then succ[(u, v)][n] MUST already be None since it is stricter to find
                         succ[(u,(u,v))][n] = None
     
                 #Restore the copy
