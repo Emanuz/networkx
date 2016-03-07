@@ -32,15 +32,18 @@ def extended_disjoint(G, weight=None, node_disjoint=False, edge_then_node_disjoi
     #print succ
     
     succ = defaultdict(dict, succ)
-    
+    notFirst = dict()
     #Create forwarding-matrix
-    
 
     #For memory overhead, we should try to make a more shallow copy that only stores the one edge that gets removed from the original
-    G_copy = G.copy(with_data=False)
+    #G_copy = G.copy(with_data=False) !!!! Refuses to copy weights
+    if G.is_directed():
+        G_copy = nx.DiGraph(G)
+    else:
+        G_copy = nx.Graph(G)
     
     if node_disjoint == True or edge_then_node_disjoint == True:        
-        for u in G:
+        for u in G.nodes():
             for v in G.neighbors(u):
             
                 #print "Removing node %s"%(u,)
@@ -53,22 +56,26 @@ def extended_disjoint(G, weight=None, node_disjoint=False, edge_then_node_disjoi
                 for n in dst_affected:
                     if n in _dist: #Check if node is reachable at all through another path
                         next = n
-                        while next != u:
+                        different_successor = False
+                        while next != u:                            
                             prev = _pred[next][0]
-                            #Remove if rule is equal to default forwarding rule
-                            #if succ[prev].get(n) != next:
-                            succ[(prev,v)][n] = next
+                            #Ignore if successive path is guaranteed equal to the regular shortest path
+                            if different_successor == True or succ[prev][n] != next:
+                                different_successor = True
+                                succ[(prev,v)][n] = next
+                                if u != prev:
+                                    notFirst[(prev,v),n] = True
                                 
                             next = prev
-                    else:
-                        succ[(u,v)][n] = None
+                    #else: We don't use these anyways
+                    #    succ[(u,v)][n] = None
                 
                 #Restore the copy
                 G_copy.add_node(v, G.node[v])
-                G_copy.add_edges_from(G.edges(nbunch=G[v], data=True))
+                G_copy.add_edges_from([(_u, _v, _data) for (_u, _v, _data) in G.edges(data=True) if _u == v or _v == v])
             
     if node_disjoint == False or edge_then_node_disjoint == True:
-        for u in G:
+        for u in G.nodes():
             for v in G.neighbors(u):
                 #print "Removing edge %s-%s"%(u,v)
                 G_copy.remove_edge(u, v)
@@ -80,19 +87,27 @@ def extended_disjoint(G, weight=None, node_disjoint=False, edge_then_node_disjoi
                 
                 for n in dst_affected:
                     if n in _dist:
-                        next = n                
+                        next = n
+                        different_successor = False
                         while next != u:
                             prev = _pred[next][0]
-                            #Only add if rule is unequal to previously set node-disjoint rule (if applicable) or default forwarding rule (otherwise)
-                            #if (edge_then_node_disjoint == True and ((prev, v) in succ and succ[(prev, v)].get(n) != next) or ((edge_then_node_disjoint == False or (prev, v) not in succ) and succ[prev].get(n) != next)):
-                            #if succ[prev].get(n) != next:
-                            succ[(prev,(u,v))][n] = next
+                            #Ignore if successive path is guaranteed equal to the regular shortest path, exclude upgrade to node-failure in case of combined-failure detection
+                            if different_successor == True or succ[prev][n] != next or (edge_then_node_disjoint is True and v == next):
+                                different_successor = True
+                                #ignore edge-disjoint forwarding rules that are equal to their node-disjoint counterparts since those can be forwarded through wildcard matching
+                                if edge_then_node_disjoint is True and (prev,v) in succ and n in succ[(prev,v)] and succ[(prev,v)][n] == next:
+                                    pass
+                                else:
+                                    succ[(prev,(u,v))][n] = next
+                                    if u != prev:
+                                        notFirst[(prev,v),n] = True
                             
                             next = prev
-                    else: # edge_then_node_disjoint == False: #If edge_then_node_disjoint == True, then succ[(u, v)][n] MUST already be None since it is stricter to find
-                        succ[(u,(u,v))][n] = None
+                    #We don't use these anyways
+                    #else: # edge_then_node_disjoint == False: #If edge_then_node_disjoint == True, then succ[(u, v)][n] MUST already be None since it is stricter to find
+                    #    succ[(u,(u,v))][n] = None
     
                 #Restore the copy
                 G_copy.add_edge(u, v, G[u][v])
-            
-    return dict(succ)
+    
+    return dict(succ), notFirst
