@@ -32,7 +32,8 @@ def extended_disjoint(G, weight=None, node_disjoint=False, edge_then_node_disjoi
     #print succ
     
     succ = defaultdict(dict, succ)
-    notFirst = dict()
+    dist = defaultdict(dict, dist)
+    notFirst = set()
     #Create forwarding-matrix
 
     #For memory overhead, we should try to make a more shallow copy that only stores the one edge that gets removed from the original
@@ -55,6 +56,7 @@ def extended_disjoint(G, weight=None, node_disjoint=False, edge_then_node_disjoi
                 
                 for n in dst_affected:
                     if n in _dist: #Check if node is reachable at all through another path
+                        dist[(u, v)][n] = _dist[n]
                         next = n
                         different_successor = False
                         while next != u:                            
@@ -62,10 +64,12 @@ def extended_disjoint(G, weight=None, node_disjoint=False, edge_then_node_disjoi
                             #Ignore if successive path is guaranteed equal to the regular shortest path
                             if different_successor == True or succ[prev][n] != next:
                                 different_successor = True
-                                succ[(prev,v)][n] = next
-                                if u != prev:
-                                    notFirst[(prev,v),n] = True
                                 
+                                succ[(prev,v)][n] = next
+
+                                if u != prev:
+                                    notFirst.add( ((prev,v),n) )
+              
                             next = prev
                     #else: We don't use these anyways
                     #    succ[(u,v)][n] = None
@@ -87,20 +91,21 @@ def extended_disjoint(G, weight=None, node_disjoint=False, edge_then_node_disjoi
                 
                 for n in dst_affected:
                     if n in _dist:
+                        dist[(u, (u, v))][n] = _dist[n]
                         next = n
                         different_successor = False
                         while next != u:
                             prev = _pred[next][0]
                             #Ignore if successive path is guaranteed equal to the regular shortest path, exclude upgrade to node-failure in case of combined-failure detection
                             if different_successor == True or succ[prev][n] != next or (edge_then_node_disjoint is True and v == next):
-                                different_successor = True
+                                different_successor = True                                
                                 #ignore edge-disjoint forwarding rules that are equal to their node-disjoint counterparts since those can be forwarded through wildcard matching
                                 if edge_then_node_disjoint is True and (prev,v) in succ and n in succ[(prev,v)] and succ[(prev,v)][n] == next:
                                     pass
                                 else:
                                     succ[(prev,(u,v))][n] = next
                                     if u != prev:
-                                        notFirst[(prev,v),n] = True
+                                        notFirst.add( ((prev,(u,v)),n) )
                             
                             next = prev
                     #We don't use these anyways
@@ -110,4 +115,4 @@ def extended_disjoint(G, weight=None, node_disjoint=False, edge_then_node_disjoi
                 #Restore the copy
                 G_copy.add_edge(u, v, G[u][v])
     
-    return dict(succ), notFirst
+    return dict(dist), dict(succ), notFirst

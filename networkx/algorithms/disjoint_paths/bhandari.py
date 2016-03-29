@@ -12,7 +12,7 @@ __all__ = ['bhandari']
 
 import networkx as nx
 
-def bhandari(G, source, target, weight=None, k=2, node_disjoint=False, force_maximally_disjoint=False, node_over_edge_disjointness=False, edge_disjointness_penalty=None, node_disjointness_penalty=None):
+def bhandari(G, source, target, weight=None, k=2, node_disjoint=False, force_maximally_disjoint=False, node_over_edge_disjointness=False, edge_disjointness_penalty=None, node_disjointness_penalty=None, sortByDistance=True):
 
     if k < 2:
         raise nx.NetworkXUnfeasible("You need at least k>=2 paths to be disjoint, k=%d"%(k))
@@ -20,7 +20,7 @@ def bhandari(G, source, target, weight=None, k=2, node_disjoint=False, force_max
     if source == target:
         raise nx.NetworkXUnfeasible("There is no such thing as a disjoint path to oneself, as oneself has to excluded from the disjoint path to be able to exist")
 
-    if G.has_negative_edges():
+    if nx.is_negatively_weighted(G, weight=weight):
         raise nx.NetworkXUnfeasible("Bhandari's algorithm is not correct for negative edges as it may insert negative cycles.")
 
     if force_maximally_disjoint == True or node_over_edge_disjointness == True or edge_disjointness_penalty != None or node_disjointness_penalty != None:
@@ -65,27 +65,37 @@ def bhandari(G, source, target, weight=None, k=2, node_disjoint=False, force_max
                 return False
                 
         return True
-           
+
+    def find_edge(u, v):
+        for iPath,path in enumerate(paths):
+            for iPos in range(len(path)-1):
+                if path[iPos:iPos+2] == [u, v]:
+                    return (iPath, iPos)
+                
+        return None
+
     G_orig = G
     
     G_copy = nx.DiGraph(G_orig)
-    path_init = []
-    edges = {}
-   
-    for i in range(0, k):
-        (pred, dist) = nx.bellman_ford_predecessor_and_distance(G_copy, source, target=target, weight=weight)
-        if target not in dist:
+    paths = []
+
+    for iPath in range(0, k):
+        (pred, _dist) = nx.bellman_ford_predecessor_and_distance(G_copy, source, target=target, weight=weight)
+        if target not in _dist:
             raise nx.NetworkXNoPath(
-                "Cannot find more than %d disjoint path(s)"%(i))
+                "Cannot find more than %d disjoint path(s)"%(iPath))
                 
-        next = None
         v = target
         u = pred[v][0]
+
+        path = [v]
+        paths.append(path)
         
         while v != source:            
             prev = pred[u][0] if u in pred else None
             
-            if (v,u) not in edges:                
+            inPath = find_edge(v, u)
+            if not inPath:                
                 #Remove edge from graph and add negatively-weighted arc in opposite direction
                 weight_val = G_copy[u][v].get(weight, 1)
                 G_copy.remove_edge(u, v)
@@ -103,26 +113,25 @@ def bhandari(G, source, target, weight=None, k=2, node_disjoint=False, force_max
                     
                     G_copy.add_edge(v, u_out, {weight : -weight_val})
 
-                    #Add to internal path
-                    edges[(u_out, v)] = (u_in , next)
-                    edges[(u_in, u_out)] = (prev, v)
+                    #Add to path
+                    path.insert(0, u_out)
+                    path.insert(0, u_in)
                     
                     #Set values for next iteration
                     u = u_in
                     v = u_out                    
                     
-                else: #Being in edges implies that u and v are already node-splitted if necessary
+                else: #Being in a path implies that u and v are already node-splitted if necessary
                     #Swap direction and weight
                     G_copy.add_edge(v, u, {weight : -weight_val})
                     
-                    #Add to internal path
-                    edges[(u, v)] = (prev, next)
+                    #Add to path
+                    path.insert(0, u)
                     
-                #Set value for next iteration
-                next = v
                 
-            else: #(v,u) in edges, thus also already splitted where applicable
-                #Restore original edges in graph, if they exists:
+            else: #(v,u) already in a path, thus also already splitted where applicable
+                sPath,sPos = inPath
+                #Restore original edges in graph, if they existed:
                 weight_val = -G_copy[u][v].get(weight, 1)                
                 G_copy.remove_edge(u,v)
 
@@ -148,64 +157,56 @@ def bhandari(G, source, target, weight=None, k=2, node_disjoint=False, force_max
                     #If original arc existed, restore it
                     if G_orig.has_edge(u, v):
                         G_copy.add_edge(u, v, {weight : G_orig[u][v].get(weight, 1)})
-                    
-                
+
+                #Current edge is opposite to the new one, thus remove it
+                if iPath == sPath:
+                    path.pop(0)
 
                 #Switch paths
-                #Connect encountered path to our tail
-                (sPrev, sNext) = edges[(v, u)]
-                del edges[(v, u)]
-                
-                (sPrevPrev, _) = edges[(sPrev, v)]
-                edges[(sPrev, v)] = (sPrevPrev, next)
-                
-                (_, nextNext) = edges[(v, next)]
-                edges[(v, next)] = (sPrev, nextNext)
-                
-                #Connect found tail to our path in next round
-                next = sNext
-                
+                else:                   
+                    tPath = path[:]
+                    path[:] = paths[sPath][sPos+1:]
+                    paths[sPath][sPos:] = tPath
+
             v = u
             u = prev
-                
-        path_init.append( (source, next) )
-    #Compute paths and true lengths
-    paths = []
+
+    #Compute true paths and lengths
     dists = []
     
-    for (u, v) in path_init:
-        
-        path = [u]
+    for i,path in enumerate(paths):
         dist = 0
+
+        u = path[0]        
         
         if node_disjoint == True:
             u_split = u
+            _path = [u]
             
-        while v != None:
-
+        for v in path[1:]:
             if node_disjoint == True:
                 if v not in G:
                     v_split = G_copy.node[v].get("split_node")
                     if u_split != v_split:
-                        path.append(v_split)
+                        _path.append(v_split)
                         dist += G[u_split][v_split].get(weight, 1)
                         u_split = v_split
                 else:
-                    path.append(v)
+                    _path.append(v)
                     dist += G[u_split][v].get(weight, 1)
                     u_split = v
                     
             else:
-                path.append(v)
                 dist += G[u][v].get(weight, 1)
- 
-            (_, next) = edges[(u, v)]
-            u = v
-            v = next
 
+            u = v
+        if node_disjoint == True:
+            path[:] = _path
+            
         dists.append(dist)
-        paths.append(path)
         
-    dists,paths = zip(*sorted(zip(dists,paths)))        
+    if sortByDistance:
+        dists,paths = zip(*sorted(zip(dists,paths)))
         
     return dists,paths
+    

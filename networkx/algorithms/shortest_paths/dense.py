@@ -13,6 +13,7 @@ __author__ = """Aric Hagberg <aric.hagberg@gmail.com>"""
 __all__ = ['floyd_warshall',
            'floyd_warshall_predecessor_and_distance',
            'floyd_warshall_successor_and_distance',
+           'floyd_warshall_predecessor_successor_and_distance',
            'floyd_warshall_numpy']
 
 def floyd_warshall_numpy(G, nodelist=None, weight='weight'):
