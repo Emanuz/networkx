@@ -548,7 +548,7 @@ def dijkstra_predecessor_and_distance(G, source, cutoff=None, weight='weight'):
     there are more than one shortest paths to the key node.
     """
     weight = _weight_function(G, weight)
-    pred = {source: []}  # dictionary of predecessors
+    pred = {source: [None]}  # dictionary of predecessors
     return (pred, _dijkstra(G, source, weight, pred=pred, cutoff=cutoff))
 
 

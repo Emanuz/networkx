@@ -154,11 +154,11 @@ class TestWeightedPath(WeightedTestBase):
     def test_dijkstra_predecessor(self):
         G = nx.path_graph(4)
         assert_equal(nx.dijkstra_predecessor_and_distance(G, 0),
-                     ({0: [], 1: [0], 2: [1], 3: [2]}, {0: 0, 1: 1, 2: 2, 3: 3}))
+                     ({0: [None], 1: [0], 2: [1], 3: [2]}, {0: 0, 1: 1, 2: 2, 3: 3}))
         G = nx.grid_2d_graph(2, 2)
         pred, dist = nx.dijkstra_predecessor_and_distance(G, (0, 0))
         assert_equal(sorted(pred.items()),
-                     [((0, 0), []), ((0, 1), [(0, 0)]),
+                     [((0, 0), [None]), ((0, 1), [(0, 0)]),
                       ((1, 0), [(0, 0)]), ((1, 1), [(0, 1), (1, 0)])])
         assert_equal(sorted(dist.items()),
                      [((0, 0), 0), ((0, 1), 1), ((1, 0), 1), ((1, 1), 2)])
@@ -193,7 +193,7 @@ class TestWeightedPath(WeightedTestBase):
         G.add_edge('a', 'b', key='short', foo=5, weight=100)
         G.add_edge('a', 'b', key='long', bar=1, weight=110)
         p, d = nx.dijkstra_predecessor_and_distance(G, 'a')
-        assert_equal(p, {'a': [], 'b': ['a']})
+        assert_equal(p, {'a': [None], 'b': ['a']})
         assert_equal(d, {'a': 0, 'b': 100})
 
     def test_negative_edge_cycle(self):
